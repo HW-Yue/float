@@ -259,7 +259,7 @@ async function addWordToVocabLib(libId, word, definition, variantOf) {
   addWordToLibData(lib.data, word, definition, variantOf);
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
-  __uploadVocabToCloud("word_added").catch(() => {});
+  __syncOnWordAdded().catch(() => {});
   return { ok: true, synced: true };
 }
 
@@ -298,7 +298,7 @@ async function addWordBatchToVocabLib(libId, word, definition, variants) {
 
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
-  __uploadVocabToCloud("word_added").catch(() => {});
+  __syncOnWordAdded().catch(() => {});
   return { ok: true, synced: true, variantsAdded: Math.max(0, seen.size - 1) };
 }
 
@@ -524,6 +524,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
+async function __syncOnWordAdded() {
+  await __downloadVocabFromCloud().catch(() => {});
+  await __uploadVocabToCloud("word_added").catch(() => {});
+}
+
 // Alarm for periodic cloud pull
 const __VOCAB_SYNC_PULL_ALARM = "vocab-sync-auto-pull";
 
@@ -559,7 +564,7 @@ ensureWordBackfillQueueKeyInitialized()
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm && alarm.name === __VOCAB_SYNC_PULL_ALARM) {
-    __uploadVocabToCloud("periodic").catch(() => {});
+    __downloadVocabFromCloud().catch(() => {});
     return;
   }
   if (alarm && alarm.name === WORD_INFO_BACKFILL_ALARM) {
