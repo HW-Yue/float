@@ -6,11 +6,11 @@
 
 **词汇高亮标注效果：**
 
-![标记效果演示](assets/marked-demo.gif)
+![标记效果演示](assets/word-marking.gif)
 
 **添加单词 & 悬浮球操作：**
 
-![操作演示](<assets/CleanShot 2026-04-04 at 15.20.44.gif>)
+![操作演示](assets/add-word.gif)
 
 
 
