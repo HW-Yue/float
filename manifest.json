@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "轻译 Float — 英文词汇标注",
+  "description": "自动标注页面生词，悬停查看释义，右键添加到自定义词库",
+  "version": "0.4.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "alarms",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js", "src/floating-ball.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "src/icons/icon16.png",
+      "48": "src/icons/icon48.png",
+      "128": "src/icons/icon128.png"
+    }
+  },
+  "commands": {
+    "toggle-page": {
+      "description": "切换当前页面的词汇标注"
+    }
+  },
+  "options_page": "src/options.html",
+  "icons": {
+    "16": "src/icons/icon16.png",
+    "48": "src/icons/icon48.png",
+    "128": "src/icons/icon128.png"
+  }
+}

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>轻译</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Nunito:wght@600&family=ZCOOL+KuaiLe&display=swap&text=轻译" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary:    #6366f1;
+      --color-primary-10: rgba(99,102,241,0.10);
+      --color-primary-25: rgba(99,102,241,0.25);
+      --color-text:       #111827;
+      --color-text-2:     #374151;
+      --color-text-3:     #6b7280;
+      --color-text-4:     #9ca3af;
+      --color-surface:    #ffffff;
+      --color-bg:         #f5f6fa;
+      --color-bg-subtle:  #f3f4f6;
+      --color-border:     #e5e7eb;
+      --ease-out: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 300px;
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--color-text);
+      background: var(--color-bg);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 12px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .logo .zh {
+      font-family: 'ZCOOL KuaiLe', sans-serif;
+      color: var(--color-text);
+    }
+
+    .logo .en {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--color-primary);
+    }
+
+    .site-badge {
+      font-size: 11px;
+      color: var(--color-text-4);
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Main toggle button ── */
+    .toggle-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+
+    .main-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    .main-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .main-btn.active {
+      background: var(--color-primary);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(99,102,241,0.22);
+    }
+
+    .main-btn.active:hover {
+      background: #818cf8;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.30);
+    }
+
+    .main-btn.inactive {
+      background: var(--color-bg-subtle);
+      color: var(--color-text-4);
+      border: 1px solid var(--color-border);
+    }
+
+    .main-btn.inactive:hover {
+      background: var(--color-border);
+      color: var(--color-text-3);
+    }
+
+    /* ── Site row ── */
+    .site-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+      min-height: 44px;
+    }
+
+    .site-row-label {
+      font-size: 12px;
+      color: var(--color-text-3);
+    }
+
+    .site-row-label .domain {
+      color: var(--color-text-2);
+      font-weight: 500;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--color-border);
+      border-radius: 10px;
+      transition: background 0.2s;
+      pointer-events: none;
+    }
+
+    .toggle input:checked + .toggle-track { background: var(--color-primary); }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform 0.2s var(--ease-out);
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+
+    .toggle input:focus-visible + .toggle-track {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    /* ── Vocab settings ── */
+    .content {
+      padding: 12px 16px 4px;
+      transition: opacity 0.2s;
+      background: var(--color-bg);
+    }
+
+    .content.disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--color-primary);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .vocab-levels {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .vocab-btn {
+      padding: 7px 10px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      border-radius: 6px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-text-3);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .vocab-btn:hover:not(.active) {
+      color: var(--color-text-2);
+      background: var(--color-bg-subtle);
+      border-color: #d1d5db;
+    }
+
+    .vocab-btn.active {
+      color: var(--color-primary);
+      background: var(--color-primary-10);
+      border-color: var(--color-primary-25);
+      font-weight: 600;
+    }
+
+    .vocab-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .vocab-hint {
+      font-size: 11px;
+      color: var(--color-text-4);
+      margin-bottom: 10px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 8px 16px 10px;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+      background: var(--color-surface);
+    }
+
+    .footer a {
+      font-size: 11px;
+      color: var(--color-text-4);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer a:hover { color: var(--color-primary); }
+
+    .footer a:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo" aria-label="轻译 Float">
+      <span class="zh">轻译</span><span class="en">Float</span>
+    </div>
+    <span class="site-badge" id="site-name">—</span>
+  </div>
+
+  <div class="toggle-section">
+    <button class="main-btn inactive" id="main-btn">
+      <span id="main-btn-text">开启标注</span>
+    </button>
+  </div>
+
+  <div class="site-row">
+    <span class="site-row-label">总是标注 <span class="domain" id="site-domain">—</span></span>
+    <label class="toggle" aria-label="切换当前网站的自动标注">
+      <input type="checkbox" id="site-toggle">
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+  </div>
+
+  <div class="content" id="content">
+    <div class="section-label" id="vocab-levels-label">标注词汇等级</div>
+    <div class="vocab-levels" id="vocab-levels" role="group" aria-labelledby="vocab-levels-label">
+      <button class="vocab-btn" data-level="zk" aria-pressed="false">初中</button>
+      <button class="vocab-btn active" data-level="gz" aria-pressed="true">高中</button>
+      <button class="vocab-btn" data-level="gk" aria-pressed="false">高考</button>
+      <button class="vocab-btn" data-level="cet4" aria-pressed="false">四级</button>
+      <button class="vocab-btn" data-level="cet6" aria-pressed="false">六级</button>
+      <button class="vocab-btn" data-level="ky" aria-pressed="false">考研</button>
+      <button class="vocab-btn" data-level="adv" aria-pressed="false">进阶</button>
+    </div>
+    <div class="vocab-hint" id="vocab-hint" aria-live="polite">高中以上词汇都标注</div>
+  </div>
+
+  <div class="footer">
+    <a href="#" id="link-options">词库管理 &amp; 设置 →</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

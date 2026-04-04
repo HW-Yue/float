@@ -1,0 +1,16 @@
+{
+  "name": "float-extension",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/background.js",
+  "scripts": {
+    "test": "node tests/english-page.test.mjs && node tests/claw.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "jsdom": "^28.1.0"
+  }
+}

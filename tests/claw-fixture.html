@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Claw fixture</title></head>
+<body>
+<div class="relative antialiased text-gray-500 dark:text-gray-400">
+  <div class="flex flex-row-reverse gap-12 box-border w-full pt-40 lg:pt-10">
+    <!-- 侧栏 TOC 占位（不处理） -->
+    <div class="hidden xl:flex" id="table-of-contents-layout">
+      <div id="table-of-contents"><ul class="toc"><li class="toc-item"><a href="#overview">Overview</a></li></ul></div>
+    </div>
+    <!-- 正文区域：与 claw.html 一致 -->
+    <div class="relative grow box-border flex-col w-full mx-auto" id="content-area">
+      <header id="header"><h1 id="page-title">Pi Integration Architecture</h1></header>
+      <div class="mdx-content relative mt-8 mb-14 prose prose-gray dark:prose-invert" id="content" data-page-title="Pi Integration Architecture">
+        <!-- claw 正文格式：h1 与 claw 一致 -->
+        <h1 class="flex whitespace-pre-wrap group font-semibold text-2xl" id="pi-integration-architecture">
+          <span class="cursor-pointer">Pi Integration Architecture</span>
+        </h1>
+        <!-- 段落：span[data-as="p"] -->
+        <span data-as="p">This document describes how OpenClaw integrates with <a href="#" class="link">pi-coding-agent</a> and its sibling packages (<code>pi-ai</code>, <code>pi-agent-core</code>, <code>pi-tui</code>) to power its AI agent capabilities.</span>
+        <h2 class="flex whitespace-pre-wrap group font-semibold" id="overview">
+          <span class="cursor-pointer">Overview</span>
+        </h2>
+        <span data-as="p">OpenClaw uses the pi SDK to embed an AI coding agent into its messaging gateway architecture. Instead of spawning pi as a subprocess or using RPC mode, OpenClaw directly imports and instantiates pi's <code>AgentSession</code> via <code>createAgentSession()</code>. This embedded approach provides:</span>
+        <!-- 无序列表 ul li -->
+        <ul>
+          <li>Full control over session lifecycle and event handling</li>
+          <li>Custom tool injection (messaging, sandbox, channel-specific actions)</li>
+          <li>System prompt customization per channel or context</li>
+        </ul>
+        <h2 class="flex whitespace-pre-wrap group font-semibold" id="provider-handling">
+          <span class="cursor-pointer">Provider-Specific Handling</span>
+        </h2>
+        <h3 class="flex whitespace-pre-wrap group font-semibold" id="anthropic">
+          <span class="cursor-pointer">Anthropic</span>
+        </h3>
+        <ul>
+          <li>Refusal magic string scrubbing</li>
+          <li>Turn validation for consecutive roles</li>
+          <li>Claude Code parameter compatibility</li>
+        </ul>
+        <h3 class="flex whitespace-pre-wrap group font-semibold" id="openai">
+          <span class="cursor-pointer">OpenAI</span>
+        </h3>
+        <ul>
+          <li><code>apply_patch</code> tool for Codex models</li>
+          <li>Thinking level downgrade handling</li>
+        </ul>
+        <!-- 有序列表 ol li -->
+        <ol>
+          <li><strong>Tool signature alignment</strong>: Currently adapting between pi-agent-core and pi-coding-agent signatures</li>
+          <li><strong>Session manager wrapping</strong>: guardSessionManager adds safety but increases complexity</li>
+          <li><strong>Extension loading</strong>: Could use pi ResourceLoader more directly</li>
+        </ol>
+        <span data-as="p">Events handled include block reply, thinking, and tool calls. The SDK handles the full agent loop.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

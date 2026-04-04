@@ -1,0 +1,53 @@
+# 依赖
+node_modules/
+
+# 系统与桌面
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# 编辑器 / IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# 日志与临时
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.cache/
+
+# 环境与密钥（若有）
+.env
+.env.local
+.env.*.local
+*.pem
+
+# 构建/打包产物（若以后有）
+dist/
+build/
+*.crx
+*.zip
+*.xpi
+
+# 测试覆盖率（若以后有）
+coverage/
+.nyc_output/
+
+# 可选：Cursor 项目本地状态（不需要提交到仓库）
+# .cursor/
+.cursor/
+
+# 本地下载的外部工具仓库
+everything-claude-code/
+
+# Claude Code 本地配置
+.claude/

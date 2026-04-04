@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>添加单词 — 轻译</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Syne:wght@700;800&family=Nunito:wght@600&family=ZCOOL+KuaiLe&display=swap&text=轻译" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary:     #6366f1;
+      --color-primary-10:  rgba(99,102,241,0.10);
+      --color-primary-25:  rgba(99,102,241,0.25);
+      --color-text:        #111827;
+      --color-text-2:      #374151;
+      --color-text-3:      #6b7280;
+      --color-text-4:      #9ca3af;
+      --color-surface:     #ffffff;
+      --color-bg:          #f5f6fa;
+      --color-bg-hover:    #f9fafb;
+      --color-border:      #e5e7eb;
+      --color-success:     #22c55e;
+      --color-error:       #ef4444;
+      --ease-out: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 400px;
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      color: var(--color-text);
+      background: var(--color-bg);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .logo .zh {
+      font-family: 'ZCOOL KuaiLe', sans-serif;
+      font-size: 17px;
+      color: var(--color-text);
+      line-height: 1;
+    }
+
+    .logo .en {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .header-label {
+      font-size: 11px;
+      color: var(--color-text-4);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    /* Word display */
+    .word-display {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+
+    .word-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--color-text);
+      line-height: 1;
+      letter-spacing: -0.5px;
+    }
+
+    /* Form sections */
+    .form-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: var(--color-bg);
+    }
+
+    .field-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-primary);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    /* Library select */
+    .lib-select {
+      width: 100%;
+      padding: 9px 32px 9px 12px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text-2);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: border-color 0.2s;
+      outline: none;
+      min-height: 40px;
+    }
+
+    .lib-select:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    }
+
+    .lib-empty {
+      font-size: 12px;
+      color: var(--color-text-4);
+      padding: 8px 0;
+    }
+
+    .lib-empty a {
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+
+    /* Domain pills */
+    .domain-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .domain-pill {
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-3);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      white-space: nowrap;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .domain-pill:hover {
+      color: var(--color-text-2);
+      border-color: #d1d5db;
+    }
+
+    .domain-pill.active {
+      background: var(--color-primary-10);
+      border-color: var(--color-primary-25);
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+
+    .domain-pill:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    /* Custom domain input */
+    .custom-input-wrap {
+      margin-top: 7px;
+      overflow: hidden;
+      transition: max-height 0.2s var(--ease-out), opacity 0.2s;
+      max-height: 0;
+      opacity: 0;
+    }
+
+    .custom-input-wrap.visible {
+      max-height: 48px;
+      opacity: 1;
+    }
+
+    .custom-input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text-2);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      min-height: 40px;
+    }
+
+    .custom-input::placeholder { color: #c4c9d4; }
+
+    .custom-input:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    }
+
+    /* Submit button */
+    .footer {
+      padding: 0 16px 16px;
+      background: var(--color-bg);
+    }
+
+    .submit-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: 8px;
+      border: none;
+      background: var(--color-primary);
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 2px 10px rgba(99,102,241,0.22);
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      background: #818cf8;
+      box-shadow: 0 4px 18px rgba(99,102,241,0.32);
+      transform: translateY(-1px);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .submit-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 3px;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .submit-btn.loading .spinner { display: block; }
+    .submit-btn.loading .btn-text { opacity: 0.75; }
+
+    /* Result area */
+    .result {
+      margin: 0 16px 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .result.success {
+      display: block;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.2);
+      color: var(--color-text-2);
+    }
+
+    .result.error {
+      display: block;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.2);
+      color: var(--color-error);
+    }
+
+    .result-word {
+      font-weight: 600;
+      color: var(--color-success);
+      font-size: 13px;
+    }
+
+    .result-def {
+      margin-top: 3px;
+      color: var(--color-text-3);
+    }
+
+    .result-variants {
+      margin-top: 3px;
+      color: var(--color-text-4);
+      font-size: 11px;
+    }
+
+    /* Toast */
+    .vocab-toast {
+      position: fixed;
+      left: 50%;
+      top: 64px;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(17,24,39,0.92);
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+      opacity: 0;
+      animation: toastIn 0.18s var(--ease-out) forwards;
+      max-width: calc(400px - 24px);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo" aria-label="轻译 Float">
+      <span class="zh">轻译</span><span class="en">Float</span>
+    </div>
+    <span class="header-label">添加单词</span>
+  </div>
+
+  <div class="word-display">
+    <div class="word-text" id="word-text" aria-live="polite">—</div>
+  </div>
+
+  <div class="form-body">
+    <!-- Library -->
+    <div>
+      <label class="field-label" for="lib-select">词库</label>
+      <select class="lib-select" id="lib-select" aria-label="选择目标词库">
+        <option value="">加载中…</option>
+      </select>
+      <div class="lib-empty" id="lib-empty" style="display:none">
+        没有词库，请先在<a href="#" id="open-options">设置页</a>创建词库
+      </div>
+    </div>
+
+    <!-- Domain -->
+    <div>
+      <p class="field-label" id="domain-label">文章领域</p>
+      <div class="domain-grid" id="domain-grid" role="group" aria-labelledby="domain-label">
+        <button class="domain-pill active" data-domain="">通用</button>
+        <button class="domain-pill" data-domain="技术/编程">技术</button>
+        <button class="domain-pill" data-domain="医学">医学</button>
+        <button class="domain-pill" data-domain="法律">法律</button>
+        <button class="domain-pill" data-domain="金融">金融</button>
+        <button class="domain-pill" data-domain="学术/科研">学术</button>
+        <button class="domain-pill" data-domain="文学">文学</button>
+        <button class="domain-pill" data-domain="__custom__">自定义</button>
+      </div>
+      <div class="custom-input-wrap" id="custom-wrap">
+        <label for="custom-domain" class="field-label" style="margin-top:8px">自定义领域描述</label>
+        <input class="custom-input" id="custom-domain" type="text" placeholder="描述当前阅读领域，如 React 前端开发">
+      </div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result" role="status" aria-live="polite"></div>
+
+  <div class="footer">
+    <button class="submit-btn" id="submit-btn" aria-label="用 AI 生成释义并添加到词库">
+      <div class="spinner" aria-hidden="true"></div>
+      <span class="btn-text">AI 生成释义并添加</span>
+    </button>
+  </div>
+
+  <script src="add-word.js"></script>
+</body>
+</html>
