@@ -259,6 +259,7 @@ async function addWordToVocabLib(libId, word, definition, variantOf) {
   addWordToLibData(lib.data, word, definition, variantOf);
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
+  __uploadVocabToCloud("word_added").catch(() => {});
   return { ok: true, synced: true };
 }
 
@@ -297,6 +298,7 @@ async function addWordBatchToVocabLib(libId, word, definition, variants) {
 
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
+  __uploadVocabToCloud("word_added").catch(() => {});
   return { ok: true, synced: true, variantsAdded: Math.max(0, seen.size - 1) };
 }
 
@@ -421,7 +423,6 @@ async function deleteVocabLib(libId) {
 
 // ===== CLOUD VOCAB SYNC =====
 
-let __vocabSyncDebounceTimer = null;
 let __vocabSyncApplyingRemote = false;
 
 function __notifyVocabSync(event, payload = {}) {
@@ -498,19 +499,6 @@ async function __downloadVocabFromCloud() {
   }
 }
 
-function __scheduleVocabAutoUpload(reason = "auto") {
-  if (__vocabSyncApplyingRemote) return;
-  if (__vocabSyncDebounceTimer) clearTimeout(__vocabSyncDebounceTimer);
-  __vocabSyncDebounceTimer = setTimeout(() => {
-    __uploadVocabToCloud(reason).catch(() => {});
-  }, 10000);
-}
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local") return;
-  const keys = Object.keys(changes || {});
-  if (keys.some(__isVocabKey)) __scheduleVocabAutoUpload("local_change");
-});
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg || typeof msg.type !== "string") return;
@@ -550,22 +538,28 @@ async function ensureWordBackfillQueueKeyInitialized() {
   await chrome.storage.local.set({ [WORD_INFO_BACKFILL_QUEUE_KEY]: [] });
 }
 
-function __ensureVocabSyncPullAlarm() {
+function __ensureVocabSyncAlarm() {
   try {
-    chrome.alarms.create(__VOCAB_SYNC_PULL_ALARM, { delayInMinutes: 1, periodInMinutes: 20 });
+    chrome.alarms.create(__VOCAB_SYNC_PULL_ALARM, { delayInMinutes: 15, periodInMinutes: 15 });
   } catch {}
 }
 
-chrome.runtime.onInstalled.addListener(() => { __ensureVocabSyncPullAlarm(); });
-chrome.runtime.onStartup.addListener(() => { __ensureVocabSyncPullAlarm(); });
-__ensureVocabSyncPullAlarm();
+chrome.runtime.onInstalled.addListener(() => {
+  __ensureVocabSyncAlarm();
+  __downloadVocabFromCloud().catch(() => {});
+});
+chrome.runtime.onStartup.addListener(() => {
+  __ensureVocabSyncAlarm();
+  __downloadVocabFromCloud().catch(() => {});
+});
+__ensureVocabSyncAlarm();
 ensureWordBackfillQueueKeyInitialized()
   .then(() => ensureWordBackfillQueueScheduled())
   .catch(() => {});
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm && alarm.name === __VOCAB_SYNC_PULL_ALARM) {
-    __downloadVocabFromCloud().catch(() => {});
+    __uploadVocabToCloud("periodic").catch(() => {});
     return;
   }
   if (alarm && alarm.name === WORD_INFO_BACKFILL_ALARM) {
