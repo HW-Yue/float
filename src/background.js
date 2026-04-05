@@ -1223,7 +1223,6 @@ async function processWordBackfillQueue() {
         variants: generated.variants || [],
         source: "backfill",
       });
-      __scheduleVocabAutoUpload("word_backfilled");
     } catch (err) {
       const attempts = Number(job?.attempts || 0) + 1;
       const lastError = err instanceof Error ? err.message : String(err || "backfill_failed");
@@ -1261,7 +1260,6 @@ async function generateAndAddWord(word, libId, domain) {
         [LAST_USED_LIB_KEY]: libId,
         [LAST_USED_DOMAIN_KEY]: domain || "",
       });
-      __scheduleVocabAutoUpload("add_word");
       await broadcastForceRescan(word, "wordAdded");
     }
     return {
