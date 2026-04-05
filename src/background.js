@@ -576,7 +576,7 @@ chrome.alarms.onAlarm.addListener(alarm => {
 // ===== LLM INFRASTRUCTURE =====
 
 const DEFAULT_PROVIDERS = {
-  gemini:   { apiKey: "", model: "gemini-3.1-flash-lite-preview" },
+  gemini:   { apiKey: "", model: "gemini-2.0-flash" },
   chatgpt:  { apiKey: "", model: "gpt-4.1-mini" },
   deepseek: { apiKey: "", model: "deepseek-chat" },
   qwen:     { apiKey: "", model: "qwen3-flash" },
@@ -983,7 +983,7 @@ async function handleMessage(message, sender) {
 
 const LAST_USED_LIB_KEY = "add_word_last_lib_id";
 const LAST_USED_DOMAIN_KEY = "add_word_last_domain";
-const WORD_INFO_TIMEOUT_MS = 750;
+const WORD_INFO_TIMEOUT_MS = 15000;
 const WORD_INFO_BACKFILL_TIMEOUT_MS = 20000;
 const WORD_INFO_CACHE_TTL_MS = 5 * 60 * 1000;
 const wordInfoCache = new Map();
@@ -1243,21 +1243,7 @@ async function generateAndAddWord(word, libId, domain) {
   const startedAt = Date.now();
   const queryStartedAt = Date.now();
   try {
-    let generated;
-    try {
-      generated = await Promise.race([
-        generateWordInfo(word, domain, { timeoutMs: WORD_INFO_TIMEOUT_MS }),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("LLM 请求超时")), WORD_INFO_TIMEOUT_MS);
-        }),
-      ]);
-    } catch (e) {
-      generated = {
-        ...localWordInfoFallback(word),
-        error: e instanceof Error ? e.message : "LLM 请求失败",
-        latencyMs: Date.now() - startedAt,
-      };
-    }
+    const generated = await generateWordInfo(word, domain, { timeoutMs: WORD_INFO_TIMEOUT_MS });
     const { definition, variants } = generated;
     const queryLatencyMs = Date.now() - queryStartedAt;
     const result = await addWordBatchToVocabLib(libId, word, definition, variants);
@@ -1277,26 +1263,13 @@ async function generateAndAddWord(word, libId, domain) {
       });
       __scheduleVocabAutoUpload("add_word");
       await broadcastForceRescan(word, "wordAdded");
-      if (generated.source === "llm") {
-        await broadcastWordWrittenToAddWordPopups({
-          word,
-          libId,
-          definition,
-          variants: variants || [],
-          source: "llm",
-        });
-      }
-      if (generated.source === "fallback") {
-        invalidateWordInfoCache(word, domain || "");
-        await enqueueWordBackfillJob(word, libId, domain);
-      }
     }
     return {
       ok: result.ok,
       definition,
       variants,
       error: result.error,
-      source: generated.source || "llm",
+      source: "llm",
       queryLatencyMs,
       latencyMs: Date.now() - startedAt,
     };
