@@ -93,10 +93,6 @@ html.float-markdown-mode .float-word {
       "DETAILS",
       "SUMMARY",
       "SPAN",
-      // Custom doc-site semantic containers (e.g. code.claude.com components)
-      "TAB",
-      "ACCORDION",
-      "ACCORDIONGROUP",
     ]);
 
     const SKIP_TAGS = new Set([
@@ -137,11 +133,6 @@ html.float-markdown-mode .float-word {
     const observedRoots = new WeakSet();
     const observers = [];
     const VOCAB_LEVEL_ORDER = ["zk", "gz", "gk", "cet4", "cet6", "ky", "adv", "ss"];
-    const DOCS_FALLBACK_STOPWORDS = new Set([
-      "the","and","for","with","from","that","this","into","your","you","are","not","but",
-      "can","use","using","when","how","all","more","than","was","were","has","have","had",
-      "will","its","it's","our","out","via","per","new","docs","doc","code","claude"
-    ]);
 
     function escapeHtml(value) {
       return value
@@ -359,25 +350,6 @@ html.float-markdown-mode .float-word {
       return out;
     }
 
-    function isClaudeDocsPage() {
-      return window.location.hostname === "code.claude.com" && window.location.pathname.startsWith("/docs/");
-    }
-
-    function buildDocsFallbackWordInfos(text, limit = 12) {
-      const picked = [];
-      const seen = new Set();
-      for (const token of tokenizeEnglishWords(text)) {
-        const word = token.normalized;
-        if (word.length < 4) continue;
-        if (DOCS_FALLBACK_STOPWORDS.has(word)) continue;
-        if (seen.has(word)) continue;
-        seen.add(word);
-        picked.push({ word, definition: "暂无释义（可右键添加）" });
-        if (picked.length >= limit) break;
-      }
-      return picked;
-    }
-
     function vocabLevelRank(level) {
       const idx = VOCAB_LEVEL_ORDER.indexOf(String(level || "").toLowerCase());
       return idx >= 0 ? idx : Number.POSITIVE_INFINITY;
@@ -405,9 +377,7 @@ html.float-markdown-mode .float-word {
       if (!el) return true;
       if (el.closest(`[${MARK_ATTR}="true"]`)) return true;
       if (el.closest("script,style,noscript,iframe,textarea,select,button")) return true;
-      const docsHeaderIntro = isClaudeDocsPage() && !!el.closest("header#header .prose");
       if (
-        !docsHeaderIntro &&
         el.closest("nav,header,footer,aside,form,[role='navigation'],[role='banner'],[role='complementary'],[role='grid'],[role='listbox']")
       ) return true;
       if (isEditableContainer(el)) return true;
@@ -540,16 +510,6 @@ html.float-markdown-mode .float-word {
 
       const wordInfos = await extractWordInfos(text);
       if (!wordInfos.length) {
-        if (isClaudeDocsPage()) {
-          const fallbackInfos = buildDocsFallbackWordInfos(text);
-          if (fallbackInfos.length) {
-            markWordsInRoot(element, fallbackInfos);
-            element.setAttribute(TRANSLATED_ATTR, signature);
-            elementTextSignatures.set(element, signature);
-            noMatchRetryAt.delete(element);
-            return;
-          }
-        }
         // Do not permanently lock this block when there is no hit.
         // Dynamic pages / delayed vocab readiness can make first pass miss.
         noMatchRetryAt.set(element, Date.now() + 4000);
@@ -569,12 +529,6 @@ html.float-markdown-mode .float-word {
       }
       if (!el) return null;
       if (BLOCK_TAGS.has(el.tagName)) return el;
-      // code.claude.com/docs may render parts inside custom tags.
-      // Fallback to nearest element (or body) so we still get candidates.
-      if (isClaudeDocsPage()) {
-        if (el === document.body) return el;
-        return textNode.parentElement || null;
-      }
       if (!BLOCK_TAGS.has(el.tagName)) return null;
       return el;
     }
@@ -649,13 +603,6 @@ html.float-markdown-mode .float-word {
         "#content h2, #content h3, #content span[data-as='p'], #content ul li, #content ol li",
         ".mdx-content span[data-as='p'], .mdx-content ul li, .mdx-content ol li",
       ];
-      if (window.location.hostname === "code.claude.com") {
-        selectors.push(
-          "main h1, main h2, main h3, main h4, main h5, main h6",
-          "main p, main li, main td, main blockquote p",
-          "article h1, article h2, article h3, article p, article li, article td"
-        );
-      }
       for (const sel of selectors) {
         for (const el of document.querySelectorAll(sel)) out.add(el);
       }
@@ -695,18 +642,6 @@ html.float-markdown-mode .float-word {
         for (const sel of githubSelectors) {
           for (const el of document.querySelectorAll(sel)) candidates.add(el);
         }
-      }
-
-      if (isClaudeDocsPage()) {
-        // code.claude.com/docs/* uses custom containers and dynamic rendering.
-        // A direct pass avoids occasional queue starvation on this site.
-        const directBatch = Array.from(candidates).slice(0, 600);
-        for (const el of directBatch) {
-          try {
-            await processElement(el);
-          } catch {}
-        }
-        return;
       }
 
       enqueueCandidates(candidates);
