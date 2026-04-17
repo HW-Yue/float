@@ -318,6 +318,26 @@ html.float-markdown-mode .float-word {
       return latin / cleaned.length >= ratio;
     }
 
+    function getSelectionContext() {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return "";
+      try {
+        const range = sel.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        const parentEl = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+        // Walk up to the nearest block-level element to get a full sentence/paragraph
+        const blockTags = new Set(["P", "DIV", "LI", "ARTICLE", "SECTION", "BLOCKQUOTE", "TD", "TH", "SPAN"]);
+        let blockEl = parentEl;
+        while (blockEl && !blockTags.has(blockEl.tagName) && blockEl.parentElement) {
+          blockEl = blockEl.parentElement;
+        }
+        const fullText = ((blockEl || parentEl)?.textContent || "").replace(/\s+/g, " ").trim();
+        return fullText.slice(0, 400);
+      } catch {
+        return "";
+      }
+    }
+
     function sendMessage(payload) {
       return new Promise((resolve) => {
         try {
@@ -922,7 +942,7 @@ html.float-markdown-mode .float-word {
       await tryActivateWithRetry();
 
       try {
-        chrome.runtime.onMessage.addListener((message) => {
+        chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           if (!message || !message.type) return;
           if (message.type === "activate") activate();
           else if (message.type === "deactivate") deactivate();
@@ -934,6 +954,9 @@ html.float-markdown-mode .float-word {
           }
           else if (message.type === "forceRescan") {
             if (active) performFullRescan(10);
+          }
+          else if (message.type === "getSelectionContext") {
+            sendResponse({ context: getSelectionContext() });
           }
         });
       } catch {}

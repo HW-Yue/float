@@ -222,6 +222,30 @@
       box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
     }
 
+    /* Context textarea */
+    .context-textarea {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text-2);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+      outline: none;
+      resize: vertical;
+      min-height: 68px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .context-textarea::placeholder { color: #c4c9d4; }
+
+    .context-textarea:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    }
+
     /* Submit button */
     .footer {
       padding: 0 16px 16px;
@@ -388,6 +412,12 @@
         <label for="custom-domain" class="field-label" style="margin-top:8px">自定义领域描述</label>
         <input class="custom-input" id="custom-domain" type="text" placeholder="描述当前阅读领域，如 React 前端开发">
       </div>
+    </div>
+
+    <!-- Context -->
+    <div>
+      <label class="field-label" for="context-input">上下文</label>
+      <textarea class="context-textarea" id="context-input" placeholder="单词所在的句子或段落，AI 会据此给出更准确的释义（可修改）"></textarea>
     </div>
   </div>
 

@@ -259,7 +259,6 @@ async function addWordToVocabLib(libId, word, definition, variantOf) {
   addWordToLibData(lib.data, word, definition, variantOf);
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
-  __syncOnWordAdded().catch(() => {});
   return { ok: true, synced: true };
 }
 
@@ -298,7 +297,6 @@ async function addWordBatchToVocabLib(libId, word, definition, variants) {
 
   await updateLibManifestChecksum(lib);
   await chrome.storage.local.set({ [key]: JSON.stringify(lib) });
-  __syncOnWordAdded().catch(() => {});
   return { ok: true, synced: true, variantsAdded: Math.max(0, seen.size - 1) };
 }
 
@@ -524,12 +522,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-async function __syncOnWordAdded() {
-  await __downloadVocabFromCloud().catch(() => {});
-  await __uploadVocabToCloud("word_added").catch(() => {});
-}
-
-// Alarm for periodic cloud pull
+// Alarm for periodic cloud sync (download + upload)
 const __VOCAB_SYNC_PULL_ALARM = "vocab-sync-auto-pull";
 
 // 必须在下方 `ensureWordBackfillQueueScheduled()` 首次调用之前定义，否则会 TDZ 报错并被 .catch 吞掉
@@ -564,7 +557,9 @@ ensureWordBackfillQueueKeyInitialized()
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm && alarm.name === __VOCAB_SYNC_PULL_ALARM) {
-    __downloadVocabFromCloud().catch(() => {});
+    __downloadVocabFromCloud()
+      .then(() => __uploadVocabToCloud("auto"))
+      .catch(() => {});
     return;
   }
   if (alarm && alarm.name === WORD_INFO_BACKFILL_ALARM) {
@@ -964,7 +959,7 @@ async function handleMessage(message, sender) {
       return getVocabLibData(message.libId);
 
     case "generateAndAddWord":
-      return generateAndAddWord(message.word, message.libId, message.domain);
+      return generateAndAddWord(message.word, message.libId, message.domain, message.context);
 
     case "getAddWordPrefs":
       return getAddWordPrefs();
@@ -988,12 +983,12 @@ const WORD_INFO_BACKFILL_TIMEOUT_MS = 20000;
 const WORD_INFO_CACHE_TTL_MS = 5 * 60 * 1000;
 const wordInfoCache = new Map();
 
-function buildWordInfoPrompt(word, domain) {
+function buildWordInfoPrompt(word, domain, context) {
   return `System: fast JSON mode. Output JSON only, no explanation.
-Task: word="${word}"${domain ? `, domain="${domain}"` : ""}.
+Task: word="${word}"${domain ? `, domain="${domain}"` : ""}${context ? `, context="${context}"` : ""}.
 Schema: {"definition":"中文释义<=12字","variants":["word_form"]}.
 Rules:
-1) definition must be concise Chinese.
+1) definition must be concise Chinese; if context is provided, reflect the word's meaning in that context.
 2) variants only morphological forms; max 4.
 3) If none, use [].
 Return one-line JSON only.`;
@@ -1068,7 +1063,7 @@ function invalidateWordInfoCache(word, domain) {
 }
 
 async function generateWordInfo(word, domain, options = {}) {
-  const { timeoutMs = WORD_INFO_TIMEOUT_MS, skipCache = false } = options;
+  const { timeoutMs = WORD_INFO_TIMEOUT_MS, skipCache = false, context = "" } = options;
   const settings = await loadSettings();
   const llmConfig = extractLlmConfig(settings.llm);
   if (!llmConfig.apiKey) throw new Error("API key 未配置，请先在设置中填写");
@@ -1087,7 +1082,7 @@ async function generateWordInfo(word, domain, options = {}) {
     }
   }
 
-  const prompt = buildWordInfoPrompt(word, domain);
+  const prompt = buildWordInfoPrompt(word, domain, context);
   let responseText;
   const startedAt = Date.now();
 
@@ -1236,13 +1231,13 @@ async function processWordBackfillQueue() {
   }
 }
 
-async function generateAndAddWord(word, libId, domain) {
+async function generateAndAddWord(word, libId, domain, context) {
   if (!word) return { ok: false, error: "缺少单词" };
   if (!libId) return { ok: false, error: "请选择词库" };
   const startedAt = Date.now();
   const queryStartedAt = Date.now();
   try {
-    const generated = await generateWordInfo(word, domain, { timeoutMs: WORD_INFO_TIMEOUT_MS });
+    const generated = await generateWordInfo(word, domain, { timeoutMs: WORD_INFO_TIMEOUT_MS, context: context || "" });
     const { definition, variants } = generated;
     const queryLatencyMs = Date.now() - queryStartedAt;
     const result = await addWordBatchToVocabLib(libId, word, definition, variants);
@@ -1302,12 +1297,20 @@ chrome.runtime.onInstalled.addListener(setupContextMenu);
 chrome.runtime.onStartup.addListener(setupContextMenu);
 setupContextMenu();
 
-chrome.contextMenus.onClicked.addListener(async info => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "float-add-word") return;
   const word = (info.selectionText || "").trim();
   if (!word) return;
 
-  const W = 400, H = 460;
+  let context = "";
+  if (tab?.id) {
+    try {
+      const resp = await chrome.tabs.sendMessage(tab.id, { type: "getSelectionContext" });
+      context = resp?.context || "";
+    } catch {}
+  }
+
+  const W = 400, H = 560;
   let left, top;
   try {
     const win = await chrome.windows.getLastFocused();
@@ -1318,8 +1321,12 @@ chrome.contextMenus.onClicked.addListener(async info => {
     top = 200;
   }
 
+  const url = new URL(chrome.runtime.getURL("src/add-word.html"));
+  url.searchParams.set("word", word);
+  if (context) url.searchParams.set("context", context);
+
   chrome.windows.create({
-    url: chrome.runtime.getURL(`src/add-word.html?word=${encodeURIComponent(word)}`),
+    url: url.href,
     type: "popup",
     width: W,
     height: H,

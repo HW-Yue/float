@@ -9,9 +9,14 @@ const libEmpty = document.getElementById("lib-empty");
 const domainGrid = document.getElementById("domain-grid");
 const customWrap = document.getElementById("custom-wrap");
 const customDomain = document.getElementById("custom-domain");
+const contextInput = document.getElementById("context-input");
 const submitBtn = document.getElementById("submit-btn");
 const result = document.getElementById("result");
 const openOptions = document.getElementById("open-options");
+
+// Pre-fill context from URL if available
+const contextParam = params.get("context") || "";
+if (contextParam) contextInput.value = contextParam;
 
 wordText.textContent = word || "—";
 
@@ -127,9 +132,10 @@ submitBtn.addEventListener("click", () => {
   }
 
   const domain = getActiveDomain();
+  const context = contextInput.value.trim();
 
   // 发送消息后立即关闭；后台独立完成生成、写入、刷新页面标记
-  chrome.runtime.sendMessage({ type: "generateAndAddWord", word, libId, domain });
+  chrome.runtime.sendMessage({ type: "generateAndAddWord", word, libId, domain, context });
   window.close();
 });
 
