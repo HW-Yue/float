@@ -618,6 +618,10 @@ function normalizeLlmConfig(llmSettings) {
 }
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const WORD_INFO_SYSTEM_PROMPT = `You are a precise contextual English lexicographer.
+Use the domain and context only to disambiguate the target word's intended sense.
+Define only the target word or target expression itself, never its surrounding phrase or sentence.
+Always respond with valid JSON and no explanation.`;
 
 // Build a Gemini API request object
 function buildGeminiRequest(prompt, llmConfig) {
@@ -625,6 +629,7 @@ function buildGeminiRequest(prompt, llmConfig) {
   return {
     url: `${GEMINI_API_BASE}/${model}:generateContent?key=${llmConfig.apiKey}`,
     body: {
+      systemInstruction: { parts: [{ text: WORD_INFO_SYSTEM_PROMPT }] },
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.1,
@@ -641,7 +646,7 @@ function buildOpenAIRequest(prompt, llmConfig) {
   const body = {
     model: llmConfig.model,
     messages: [
-      { role: "system", content: "You are a helpful English reading assistant. Always respond with valid JSON." },
+      { role: "system", content: WORD_INFO_SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
     temperature: 0.1,
@@ -959,7 +964,13 @@ async function handleMessage(message, sender) {
       return getVocabLibData(message.libId);
 
     case "generateAndAddWord":
-      return generateAndAddWord(message.word, message.libId, message.domain, message.context);
+      return generateAndAddWord(
+        message.word,
+        message.libId,
+        message.domain,
+        message.context,
+        message.sourceTabId
+      );
 
     case "getAddWordPrefs":
       return getAddWordPrefs();
@@ -984,13 +995,21 @@ const WORD_INFO_CACHE_TTL_MS = 5 * 60 * 1000;
 const wordInfoCache = new Map();
 
 function buildWordInfoPrompt(word, domain, context) {
-  return `System: fast JSON mode. Output JSON only, no explanation.
-Task: word="${word}"${domain ? `, domain="${domain}"` : ""}${context ? `, context="${context}"` : ""}.
-Schema: {"definition":"中文释义<=12字","variants":["word_form"]}.
+  const target = JSON.stringify(String(word || "").trim());
+  const domainHint = String(domain || "").trim();
+  const contextHint = String(context || "").replace(/\s+/g, " ").trim();
+  return `Target word or expression: ${target}
+${domainHint ? `Domain hint: ${JSON.stringify(domainHint)}\n` : ""}${contextHint ? `Context: ${JSON.stringify(contextHint)}\n` : ""}Task: Select the target's intended lexical sense, then give a concise dictionary-style Chinese gloss.
+Schema: {"definition":"目标词本身的中文词义（不超过12个汉字）","variants":["word_form"]}
 Rules:
-1) definition must be concise Chinese; if context is provided, reflect the word's meaning in that context.
-2) variants only morphological forms; max 4.
-3) If none, use [].
+1) Use the domain and context only to choose the correct sense. They are disambiguation evidence, not text to translate.
+2) definition must explain only the target itself. Do not include the meaning of neighboring words, subjects, objects, modifiers, or domain entities.
+3) Do not translate or summarize the surrounding phrase or sentence. Never pad definition with words copied from context.
+4) Keep definition within 12 Chinese characters. If the target is inflected, define its lexical meaning in this context.
+5) variants may contain only morphological forms of the target; max 4. If none, use [].
+Definition examples:
+- target="integrating", context="integrating LLMs into Java applications": use "集成；整合", not "集成大语言模型".
+- target="capabilities", context="AI agent capabilities": use "能力", not "智能体能力".
 Return one-line JSON only.`;
 }
 
@@ -1054,12 +1073,16 @@ function fetchWithTimeout(url, init, timeoutMs = WORD_INFO_TIMEOUT_MS) {
     .finally(() => clearTimeout(timer));
 }
 
-function getWordInfoCacheKey(word, domain) {
-  return `${String(word || "").trim().toLowerCase()}::${String(domain || "").trim().toLowerCase()}`;
+function getWordInfoCacheKey(word, domain, context = "") {
+  return JSON.stringify([
+    String(word || "").trim().toLowerCase(),
+    String(domain || "").trim().toLowerCase(),
+    String(context || "").replace(/\s+/g, " ").trim(),
+  ]);
 }
 
-function invalidateWordInfoCache(word, domain) {
-  wordInfoCache.delete(getWordInfoCacheKey(word, domain));
+function invalidateWordInfoCache(word, domain, context = "") {
+  wordInfoCache.delete(getWordInfoCacheKey(word, domain, context));
 }
 
 async function generateWordInfo(word, domain, options = {}) {
@@ -1068,7 +1091,9 @@ async function generateWordInfo(word, domain, options = {}) {
   const llmConfig = extractLlmConfig(settings.llm);
   if (!llmConfig.apiKey) throw new Error("API key 未配置，请先在设置中填写");
 
-  const cacheKey = getWordInfoCacheKey(word, domain);
+  // Definitions are context-sensitive. Reusing a result generated for the
+  // same word/domain but a different sentence produces the wrong meaning.
+  const cacheKey = getWordInfoCacheKey(word, domain, context);
   if (!skipCache) {
     const cached = wordInfoCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < WORD_INFO_CACHE_TTL_MS) {
@@ -1127,10 +1152,20 @@ async function generateWordInfo(word, domain, options = {}) {
   return result;
 }
 
-async function broadcastForceRescan(word, reason = "wordAdded") {
+async function broadcastForceRescan(word, reason = "wordAdded", clearSelectionTabId = null) {
+  const normalizedSourceTabId = clearSelectionTabId !== null &&
+    clearSelectionTabId !== undefined &&
+    Number.isInteger(Number(clearSelectionTabId))
+    ? Number(clearSelectionTabId)
+    : null;
   const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, { type: "forceRescan", reason, word }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, {
+      type: "forceRescan",
+      reason,
+      word,
+      clearSelection: normalizedSourceTabId !== null && tab.id === normalizedSourceTabId,
+    }).catch(() => {});
   }
 }
 
@@ -1231,7 +1266,7 @@ async function processWordBackfillQueue() {
   }
 }
 
-async function generateAndAddWord(word, libId, domain, context) {
+async function generateAndAddWord(word, libId, domain, context, sourceTabId) {
   if (!word) return { ok: false, error: "缺少单词" };
   if (!libId) return { ok: false, error: "请选择词库" };
   const startedAt = Date.now();
@@ -1255,7 +1290,7 @@ async function generateAndAddWord(word, libId, domain, context) {
         [LAST_USED_LIB_KEY]: libId,
         [LAST_USED_DOMAIN_KEY]: domain || "",
       });
-      await broadcastForceRescan(word, "wordAdded");
+      await broadcastForceRescan(word, "wordAdded", sourceTabId);
     }
     return {
       ok: result.ok,
@@ -1324,6 +1359,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const url = new URL(chrome.runtime.getURL("src/add-word.html"));
   url.searchParams.set("word", word);
   if (context) url.searchParams.set("context", context);
+  if (Number.isInteger(tab?.id)) url.searchParams.set("sourceTabId", String(tab.id));
 
   chrome.windows.create({
     url: url.href,

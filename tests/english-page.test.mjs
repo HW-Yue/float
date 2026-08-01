@@ -24,6 +24,7 @@ async function main() {
 
   const { window } = dom;
   const { document } = window;
+  let runtimeMessageListener = null;
 
   global.window = window;
   global.document = document;
@@ -83,7 +84,9 @@ async function main() {
         if (typeof cb === "function") cb(response);
       },
       onMessage: {
-        addListener() {},
+        addListener(listener) {
+          runtimeMessageListener = listener;
+        },
       },
     },
     storage: {
@@ -149,8 +152,37 @@ async function main() {
     process.exit(1);
   }
 
+  // Selecting an existing annotated word must still return its paragraph,
+  // rather than stopping at Float's own inline .float-word span.
+  const markedWord = withWords[0].querySelector(".float-word");
+  const contextBlock = markedWord.closest("p, li, article, section, blockquote, td, th, div");
+  const range = document.createRange();
+  range.selectNodeContents(markedWord);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  const expectedContext = contextBlock.textContent.replace(/\s+/g, " ").trim().slice(0, 400);
+  const actualContext = window.__floatTestHooks.getSelectionContext();
+  if (actualContext !== expectedContext) {
+    console.error(`Existing marked word context mismatch: ${JSON.stringify(actualContext)}`);
+    process.exit(1);
+  }
+
+  // A successful add requests a full rescan. The source tab must clear the
+  // selection before annotation nodes are replaced, preventing Range drift.
+  runtimeMessageListener?.({
+    type: "forceRescan",
+    clearSelection: true,
+    word: markedWord.textContent,
+  }, {}, () => {});
+  if (selection.rangeCount !== 0 || selection.toString() !== "") {
+    console.error("Selection was not cleared before force rescan.");
+    process.exit(1);
+  }
+
   console.log(
-    `OK: ${withWords.length} list items with word annotation (.float-word).`
+    `OK: ${withWords.length} list items annotated; marked-word context and rescan selection verified.`
   );
   process.exit(0);
 }
@@ -159,4 +191,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

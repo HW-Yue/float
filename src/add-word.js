@@ -2,6 +2,10 @@
 
 const params = new URLSearchParams(location.search);
 const word = params.get("word") || "";
+const sourceTabIdParam = params.get("sourceTabId");
+const sourceTabId = /^\d+$/.test(sourceTabIdParam || "")
+  ? Number(sourceTabIdParam)
+  : null;
 
 const wordText = document.getElementById("word-text");
 const libSelect = document.getElementById("lib-select");
@@ -135,7 +139,14 @@ submitBtn.addEventListener("click", () => {
   const context = contextInput.value.trim();
 
   // 发送消息后立即关闭；后台独立完成生成、写入、刷新页面标记
-  chrome.runtime.sendMessage({ type: "generateAndAddWord", word, libId, domain, context });
+  chrome.runtime.sendMessage({
+    type: "generateAndAddWord",
+    word,
+    libId,
+    domain,
+    context,
+    ...(sourceTabId !== null ? { sourceTabId } : {}),
+  });
   window.close();
 });
 

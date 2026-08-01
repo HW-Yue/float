@@ -95,6 +95,17 @@ html.float-markdown-mode .float-word {
       "SPAN",
     ]);
 
+    const CONTEXT_BLOCK_TAGS = new Set([
+      "P",
+      "DIV",
+      "LI",
+      "ARTICLE",
+      "SECTION",
+      "BLOCKQUOTE",
+      "TD",
+      "TH",
+    ]);
+
     const SKIP_TAGS = new Set([
       "SCRIPT",
       "STYLE",
@@ -325,10 +336,17 @@ html.float-markdown-mode .float-word {
         const range = sel.getRangeAt(0);
         const container = range.commonAncestorContainer;
         const parentEl = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
-        // Walk up to the nearest block-level element to get a full sentence/paragraph
-        const blockTags = new Set(["P", "DIV", "LI", "ARTICLE", "SECTION", "BLOCKQUOTE", "TD", "TH", "SPAN"]);
+        // Float wraps known words in an inline span. Skip that wrapper (and other
+        // inline spans) so looking up an existing marked word still captures its
+        // surrounding sentence/paragraph. Some documentation sites do use
+        // span[data-as="p"] as their actual paragraph container, so keep that case.
         let blockEl = parentEl;
-        while (blockEl && !blockTags.has(blockEl.tagName) && blockEl.parentElement) {
+        while (
+          blockEl &&
+          !CONTEXT_BLOCK_TAGS.has(blockEl.tagName) &&
+          !(blockEl.tagName === "SPAN" && blockEl.getAttribute("data-as") === "p") &&
+          blockEl.parentElement
+        ) {
           blockEl = blockEl.parentElement;
         }
         const fullText = ((blockEl || parentEl)?.textContent || "").replace(/\s+/g, " ").trim();
@@ -805,6 +823,19 @@ html.float-markdown-mode .float-word {
       });
     }
 
+    function clearCurrentSelection(expectedText = "") {
+      try {
+        const selection = window.getSelection();
+        if (!selection?.rangeCount) return;
+        const selectedText = selection.toString().replace(/\s+/g, " ").trim().toLowerCase();
+        const expected = String(expectedText || "").replace(/\s+/g, " ").trim().toLowerCase();
+        // AI generation can take a few seconds. Do not clear a newer selection
+        // the user made while waiting for the add operation to finish.
+        if (expected && selectedText !== expected) return;
+        selection.removeAllRanges();
+      } catch {}
+    }
+
     function ensureStyles() {
       if (styleInjected) return;
       const style = document.createElement("style");
@@ -892,8 +923,12 @@ html.float-markdown-mode .float-word {
       }
     }
 
-    function performFullRescan(delay = 0) {
+    function performFullRescan(delay = 0, clearSelection = false, selectedWord = "") {
       if (!active) return;
+      // The selected word can be inside a text node that cleanupMarkup replaces.
+      // Clear it first on the tab that initiated the add operation, otherwise
+      // Chrome may re-anchor the stale Range to text preceding the word.
+      if (clearSelection) clearCurrentSelection(selectedWord);
       elementTextSignatures = new WeakMap();
       noMatchRetryAt = new WeakMap();
       pendingCandidates.clear();
@@ -953,7 +988,7 @@ html.float-markdown-mode .float-word {
             else if (active) scheduleScan(50);
           }
           else if (message.type === "forceRescan") {
-            if (active) performFullRescan(10);
+            if (active) performFullRescan(10, message.clearSelection === true, message.word || "");
           }
           else if (message.type === "getSelectionContext") {
             sendResponse({ context: getSelectionContext() });
@@ -963,7 +998,7 @@ html.float-markdown-mode .float-word {
     }
 
     if (typeof window !== "undefined") {
-      const testHooks = { runInitialScan };
+      const testHooks = { getSelectionContext, runInitialScan };
       window.__floatTestHooks = testHooks;
     }
 
@@ -972,4 +1007,3 @@ html.float-markdown-mode .float-word {
     console.warn("[Float]", e);
   }
 })();
-
